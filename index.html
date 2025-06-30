@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quakes U12 Boys Soccer Season Schedule</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif, system-ui;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            inset: 0;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.is-open {
+            display: flex;
+        }
+        .status-select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: none;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+
+    <div id="auth-error-container" class="hidden fixed inset-0 bg-red-100 text-red-800 p-8 z-[100]">
+        <div class="m-auto text-center">
+            <h2 class="text-2xl font-bold mb-4">Authentication Error</h2>
+            <p id="auth-error-message" class="text-lg"></p>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Quakes U12 Boys Soccer Season Schedule</h1>
+                <p id="app-id-display" class="text-xs text-gray-400 mt-1"></p>
+            </div>
+            <div class="flex gap-4">
+                <button id="search-tournaments-btn" class="bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition-colors">
+                    Search for Tournaments
+                </button>
+                <button id="add-tournament-btn" class="bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg shadow hover:bg-indigo-700 transition-colors">
+                    + Add Tournament
+                </button>
+            </div>
+        </header>
+
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <input type="text" id="filter-name" placeholder="Search by name..." class="p-3 border border-gray-300 rounded-lg w-full">
+                <select id="filter-weekend" class="p-3 border border-gray-300 rounded-lg w-full bg-white"></select>
+                <select id="filter-status" class="p-3 border border-gray-300 rounded-lg w-full bg-white"></select>
+                <select id="filter-event-type" class="p-3 border border-gray-300 rounded-lg w-full bg-white"></select>
+            </div>
+        </div>
+
+        <div id="loading-indicator" class="text-center py-10">
+            <p class="text-gray-500">Loading schedule...</p>
+        </div>
+
+        <div id="table-container" class="bg-white rounded-lg shadow overflow-x-auto hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+               <thead class="bg-gray-50">
+                   <tr>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weekend</th>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Game Date</th>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tournament Name</th>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event Type</th>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Drive Time</th>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estimated Cost</th>
+                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Cost</th>
+                       <th scope="col" class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
+                   </tr>
+               </thead>
+               <tbody id="tournaments-tbody" class="bg-white divide-y divide-gray-200"></tbody>
+                <tfoot id="tournaments-tfoot" class="bg-gray-100 font-bold"></tfoot>
+            </table>
+        </div>
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg flex items-center gap-4">
+             <label for="player-count" class="font-medium text-gray-700">Number of Players:</label>
+             <input type="number" id="player-count" value="11" class="p-2 border border-gray-300 rounded-lg w-24">
+         </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="edit-modal" class="modal">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div class="p-6">
+                <h2 id="modal-title" class="text-2xl font-bold text-gray-900 mb-6"></h2>
+                <form id="edit-form" class="space-y-4">
+                    <input type="hidden" id="edit-id">
+                    <input type="text" id="edit-name" placeholder="Tournament Name" class="w-full p-3 border border-gray-300 rounded-lg" required />
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="edit-weekend" placeholder="Weekend (e.g., Oct 25-26, 2025)" class="w-full p-3 border border-gray-300 rounded-lg" />
+                        <input type="text" id="edit-gameDate" placeholder="Game Date (e.g., Oct 25, 2025)" class="w-full p-3 border border-gray-300 rounded-lg" />
+                    </div>
+                    <input type="text" id="edit-location" placeholder="Location" class="w-full p-3 border border-gray-300 rounded-lg" />
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <input type="text" id="edit-driveTime" placeholder="Drive Time" class="w-full p-3 border border-gray-300 rounded-lg" />
+                         <input type="text" id="edit-estimatedCost" placeholder="Estimated Cost" class="w-full p-3 border border-gray-300 rounded-lg" />
+                    </div>
+                     <input type="text" id="edit-actualCost" placeholder="Actual Cost" class="w-full p-3 border border-gray-300 rounded-lg" />
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <select id="edit-status" class="w-full p-3 border border-gray-300 rounded-lg bg-white"></select>
+                        <select id="edit-eventType" class="w-full p-3 border border-gray-300 rounded-lg bg-white"></select>
+                    </div>
+                    <div class="pt-4 flex justify-end space-x-3">
+                        <button type="button" id="cancel-edit-btn" class="px-6 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors font-medium">Cancel</button>
+                        <button type="submit" class="px-6 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors font-medium">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div id="ai-modal" class="modal">
+         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+            <div class="p-6 border-b">
+                <h2 class="text-2xl font-bold text-gray-900">✨ AI Assistant</h2>
+                <p id="ai-modal-subtitle" class="text-sm text-gray-600 mt-1"></p>
+            </div>
+            <div class="p-6 flex-grow overflow-y-auto">
+                <div id="ai-loading" class="hidden flex justify-center items-center h-48">
+                    <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
+                </div>
+                <div id="ai-error" class="hidden text-red-600 bg-red-100 p-4 rounded-lg"></div>
+                <pre id="ai-response" class="whitespace-pre-wrap font-sans text-gray-700 bg-gray-50 p-4 rounded-lg">What would you like to know?</pre>
+            </div>
+            <div id="ai-prompts" class="p-6 border-t bg-gray-50 rounded-b-lg">
+                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <button data-prompt="restaurants" class="ai-prompt-btn bg-blue-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors disabled:bg-blue-300">Restaurants</button>
+                    <button data-prompt="activities" class="ai-prompt-btn bg-green-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:bg-green-300">Activities</button>
+                    <button data-prompt="packingList" class="ai-prompt-btn bg-yellow-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors disabled:bg-yellow-300">Packing List</button>
+                    <button data-prompt="email" class="ai-prompt-btn bg-red-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-red-600 transition-colors disabled:bg-red-300">Draft Email</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="search-modal" class="modal">
+         <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+            <div class="p-6 border-b">
+                <h2 class="text-2xl font-bold text-gray-900">Search for Tournaments</h2>
+                <div class="flex mt-4 gap-2">
+                    <input type="text" id="search-query" placeholder="e.g., Northern California Fall 2025" class="flex-grow p-3 border border-gray-300 rounded-lg"/>
+                    <button id="search-submit-btn" class="bg-blue-600 text-white font-medium py-3 px-6 rounded-lg hover:bg-blue-700 disabled:bg-blue-300">
+                        Search
+                    </button>
+                </div>
+            </div>
+            <div id="search-results-container" class="p-6 flex-grow overflow-y-auto">
+                 <div id="search-loading" class="hidden flex justify-center items-center h-48">
+                    <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+                <div id="search-error" class="hidden text-red-600 bg-red-100 p-4 rounded-lg"></div>
+                <ul id="search-results-list" class="space-y-3"></ul>
+                <p id="search-prompt-text" class="text-gray-500 text-center">Enter a search query to find tournaments.</p>
+            </div>
+            <div class="p-4 border-t bg-gray-50 rounded-b-lg flex justify-end">
+                 <button id="search-close-btn" class="px-6 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors font-medium">Close</button>
+            </div>
+        </div>
+    </div>
+    
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        // --- State and Config ---
+        let allTournaments = [];
+        let filteredTournaments = [];
+        let filters = { name: '', weekend: '', status: '', eventType: '' };
+        let numberOfPlayers = 11;
+        
+        // --- Firebase Config (Pasted from user) ---
+        const appId = 'my-quakes-u12-schedule';
+        const firebaseConfig = {
+          apiKey: "AIzaSyBwHBbL0ZxKW0b9fDEV317BMKihJyTCchY",
+          authDomain: "quakes-soccer-schedule.firebaseapp.com",
+          projectId: "quakes-soccer-schedule",
+          storageBucket: "quakes-soccer-schedule.appspot.com",
+          messagingSenderId: "462438262939",
+          appId: "1:462438262939:web:8780339a10eee6d3b9fe3e"
+        };
+        // --- End of Firebase Config ---
+
+
+        const initialTournaments = [
+            { weekend: "July 18-20, 2025", gameDate: "Jul 18-20, 2025", name: "Solano Surf Classic (Boys)", location: "Fairfield, CA", status: "Candidate", eventType: "Tournament", driveTime: "~41 mins", estimatedCost: "$795", actualCost: "" },
+            { weekend: "July 18-20, 2025", gameDate: "Jul 19-20, 2025", name: "Silver Cup", location: "Sacramento, CA", status: "Candidate", eventType: "Tournament", driveTime: "~1 hr 15 mins", estimatedCost: "$850", actualCost: "" },
+            { weekend: "July 26-27, 2025", gameDate: "Jul 26-27, 2025", name: "San Ramon FC Summer Classic", location: "San Ramon, CA", status: "Not Registered", eventType: "Tournament", driveTime: "~15 mins", estimatedCost: "$950", actualCost: "" },
+            { weekend: "August 16-17, 2025", gameDate: "August 16-17, 2025", name: "San Ramon FC Soccerfest", location: "San Ramon, CA", status: "Registered", eventType: "Tournament", driveTime: "~15 mins", estimatedCost: "$950", actualCost: "$950" },
+            { weekend: "September 13-14, 2025", gameDate: "September 13, 2025", name: "CUFA Tahoe Fall Classic 2025", location: "South Lake Tahoe, CA", status: "Registered", eventType: "Tournament", driveTime: "~3 hr 30 mins", estimatedCost: "$945", actualCost: "$945" },
+            { weekend: "October 25-26, 2025", gameDate: "October 25-26, 2025", name: "BooFest", location: "Brentwood", status: "Registered", eventType: "Tournament", driveTime: "~47 mins", estimatedCost: "$800", actualCost: "$800" }
+        ];
+
+        const statusStyles = { "Registered": "bg-green-100 text-green-800 border-green-200", "Not Registered": "bg-yellow-100 text-yellow-800 border-yellow-200", "Blocked": "bg-red-100 text-red-800 border-red-200", "Candidate": "bg-blue-100 text-blue-800 border-blue-200" };
+        const statusOptions = ["Not Registered", "Registered", "Blocked", "Candidate"];
+        const eventTypeOptions = ["Tournament", "State Cup Game", "Blocked Date", "League Game"];
+        
+        // --- DOM Elements ---
+        const tbody = document.getElementById('tournaments-tbody');
+        const tfoot = document.getElementById('tournaments-tfoot');
+        const playerCountInput = document.getElementById('player-count');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const tableContainer = document.getElementById('table-container');
+        
+        // --- Render Functions ---
+        const renderTable = () => {
+            tbody.innerHTML = '';
+            filteredTournaments.forEach(tournament => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${tournament.weekend || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${tournament.gameDate || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">${tournament.name || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${tournament.location || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <select data-id="${tournament.id}" class="status-select text-xs font-semibold rounded-full px-2 py-1 border appearance-none text-center ${statusStyles[tournament.status] || 'bg-gray-100 text-gray-800'}">
+                            ${statusOptions.map(s => `<option value="${s}" ${s === tournament.status ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${tournament.eventType || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${tournament.driveTime || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${tournament.estimatedCost || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${tournament.actualCost || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
+                        <button class="ai-btn text-purple-600 hover:text-purple-900" data-id="${tournament.id}">✨ Ask AI</button>
+                        <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-id="${tournament.id}">Edit</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900" data-id="${tournament.id}">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            renderFooter();
+        };
+
+        const renderFooter = () => {
+             const parseCost = (costString) => {
+                if (typeof costString !== 'string' || costString.trim() === '') return 0;
+                const number = parseFloat(costString.replace(/[^0-9.-]+/g, ""));
+                return isNaN(number) ? 0 : number;
+            };
+            const totalEstimated = filteredTournaments.reduce((sum, t) => (t.status === 'Registered' || t.status === 'Candidate') ? sum + parseCost(t.estimatedCost) : sum, 0);
+            const totalActual = filteredTournaments.reduce((sum, t) => sum + parseCost(t.actualCost), 0);
+            const costPerPlayer = numberOfPlayers > 0 ? totalActual / numberOfPlayers : 0;
+            
+            tfoot.innerHTML = `
+                 <tr class="bg-gray-100 font-bold">
+                    <td colspan="7" class="px-6 py-3 text-right text-sm text-gray-700 uppercase">Total Estimated Cost:</td>
+                    <td class="px-6 py-3 text-left text-sm text-gray-900">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEstimated)}</td>
+                    <td colspan="2"></td>
+                </tr>
+                 <tr class="bg-gray-100 font-bold">
+                    <td colspan="8" class="px-6 py-3 text-right text-sm text-gray-700 uppercase">Total Actual Cost:</td>
+                    <td class="px-6 py-3 text-left text-sm text-gray-900">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalActual)}</td>
+                    <td></td>
+                </tr>
+                 <tr class="bg-gray-100 font-bold">
+                    <td colspan="8" class="px-6 py-3 text-right text-sm text-gray-700 uppercase">Cost Per Player:</td>
+                    <td class="px-6 py-3 text-left text-sm text-gray-900">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(costPerPlayer)}</td>
+                    <td></td>
+                </tr>
+            `;
+        }
+
+        const applyFilters = () => {
+            filteredTournaments = allTournaments.filter(t => 
+                (filters.name === '' || t.name.toLowerCase().includes(filters.name.toLowerCase())) &&
+                (filters.weekend === '' || t.weekend === filters.weekend) &&
+                (filters.status === '' || t.status === filters.status) &&
+                (filters.eventType === '' || t.eventType === filters.eventType)
+            );
+            renderTable();
+        };
+
+        const updateFilterDropdowns = () => {
+            const createOptions = (arr) => `<option value="">All</option>${[...new Set(arr)].sort().map(o => `<option value="${o}">${o}</option>`).join('')}`;
+            document.getElementById('filter-weekend').innerHTML = createOptions(allTournaments.map(t => t.weekend));
+            document.getElementById('filter-status').innerHTML = createOptions(allTournaments.map(t => t.status));
+            document.getElementById('filter-event-type').innerHTML = createOptions(allTournaments.map(t => t.eventType));
+        }
+
+        // --- Firebase Logic ---
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+            let tournamentsCollection;
+
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (error) {
+                        console.error("Authentication failed:", error);
+                        const errorContainer = document.getElementById('auth-error-container');
+                        const errorMessageEl = document.getElementById('auth-error-message');
+                         if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/configuration-not-found') {
+                            errorMessageEl.innerHTML = `To use this app, please enable Anonymous sign-in in your Firebase project: <br>1. Go to your Firebase Console. <br>2. Select your project ('quakes-soccer-schedule'). <br>3. Go to Authentication > Sign-in method. <br>4. Click 'Add new provider', select 'Anonymous', and click 'Enable'. <br>5. Refresh this page.`;
+                        } else {
+                            errorMessageEl.textContent = `An unexpected authentication error occurred: ${error.message}`;
+                        }
+                        errorContainer.classList.remove('hidden');
+                        loadingIndicator.style.display = 'none';
+                    }
+                    return;
+                }
+
+                console.log("User authenticated:", user.uid);
+                document.getElementById('app-id-display').textContent = `App ID: ${appId}`;
+                
+                tournamentsCollection = collection(db, `/artifacts/${appId}/public/data/tournaments`);
+                onSnapshot(tournamentsCollection, (snapshot) => {
+                    loadingIndicator.style.display = 'none';
+                    tableContainer.style.display = 'block';
+
+                    if (snapshot.empty && !snapshot.metadata.fromCache) {
+                         console.log("Seeding initial data...");
+                         const batch = writeBatch(db);
+                         initialTournaments.forEach(t => batch.set(doc(tournamentsCollection), t));
+                         batch.commit().catch(e => console.error("Seeding error:", e));
+                    } else {
+                        allTournaments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        applyFilters();
+                        updateFilterDropdowns();
+                    }
+                }, (error) => {
+                    console.error("Error fetching tournaments:", error);
+                    loadingIndicator.textContent = "Error loading data.";
+                });
+            });
+        } catch(e) {
+             console.error("Firebase initialization failed: ", e);
+             alert("Could not initialize the app. Please ensure your Firebase configuration is correct.");
+        }
+
+
+        // --- Event Handlers ---
+        document.getElementById('add-tournament-btn').addEventListener('click', () => {
+            document.getElementById('edit-form').reset();
+            document.getElementById('edit-id').value = '';
+            document.getElementById('modal-title').textContent = 'Add New Tournament';
+            document.getElementById('edit-modal').classList.add('is-open');
+        });
+        
+        tbody.addEventListener('click', (e) => {
+            const tournamentsCollection = collection(getFirestore(), `/artifacts/${appId}/public/data/tournaments`);
+            if (e.target.classList.contains('edit-btn')) {
+                const tournament = allTournaments.find(t => t.id === e.target.dataset.id);
+                if (tournament) {
+                    document.getElementById('edit-id').value = tournament.id || '';
+                    document.getElementById('edit-name').value = tournament.name || '';
+                    document.getElementById('edit-weekend').value = tournament.weekend || '';
+                    document.getElementById('edit-gameDate').value = tournament.gameDate || '';
+                    document.getElementById('edit-location').value = tournament.location || '';
+                    document.getElementById('edit-driveTime').value = tournament.driveTime || '';
+                    document.getElementById('edit-estimatedCost').value = tournament.estimatedCost || '';
+                    document.getElementById('edit-actualCost').value = tournament.actualCost || '';
+                    document.getElementById('edit-status').value = tournament.status || 'Not Registered';
+                    document.getElementById('edit-eventType').value = tournament.eventType || 'Tournament';
+                    document.getElementById('modal-title').textContent = 'Edit Tournament';
+                    document.getElementById('edit-modal').classList.add('is-open');
+                }
+            } else if (e.target.classList.contains('delete-btn')) {
+                if (confirm('Are you sure you want to delete this tournament?')) {
+                    deleteDoc(doc(tournamentsCollection, e.target.dataset.id));
+                }
+            } else if (e.target.classList.contains('ai-btn')) {
+                 const tournament = allTournaments.find(t => t.id === e.target.dataset.id);
+                 if (tournament) {
+                    document.getElementById('ai-modal-subtitle').textContent = `For ${tournament.name}`;
+                    document.getElementById('ai-modal').dataset.tournament = JSON.stringify(tournament);
+                    document.getElementById('ai-modal').classList.add('is-open');
+                 }
+            }
+        });
+
+        tbody.addEventListener('change', (e) => {
+            const tournamentsCollection = collection(getFirestore(), `/artifacts/${appId}/public/data/tournaments`);
+            if (e.target.classList.contains('status-select')) {
+                 updateDoc(doc(tournamentsCollection, e.target.dataset.id), { status: e.target.value });
+            }
+        });
+
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tournamentsCollection = collection(getFirestore(), `/artifacts/${appId}/public/data/tournaments`);
+            const id = document.getElementById('edit-id').value;
+            const data = {
+                name: document.getElementById('edit-name').value,
+                weekend: document.getElementById('edit-weekend').value,
+                gameDate: document.getElementById('edit-gameDate').value,
+                location: document.getElementById('edit-location').value,
+                driveTime: document.getElementById('edit-driveTime').value,
+                estimatedCost: document.getElementById('edit-estimatedCost').value,
+                actualCost: document.getElementById('edit-actualCost').value,
+                status: document.getElementById('edit-status').value,
+                eventType: document.getElementById('edit-eventType').value,
+            };
+            if (id) {
+                await updateDoc(doc(tournamentsCollection, id), data);
+            } else {
+                await addDoc(tournamentsCollection, data);
+            }
+            document.getElementById('edit-modal').classList.remove('is-open');
+        });
+
+        // --- Modal & Filter Event Listeners ---
+        ['filter-name', 'filter-weekend', 'filter-status', 'filter-event-type'].forEach(id => {
+            const el = document.getElementById(id);
+            const event = el.tagName === 'SELECT' ? 'change' : 'keyup';
+            el.addEventListener(event, () => {
+                filters[id.split('-')[1]] = el.value;
+                applyFilters();
+            });
+        });
+        
+        playerCountInput.addEventListener('change', () => {
+            numberOfPlayers = parseInt(playerCountInput.value, 10) || 1;
+            renderFooter();
+        });
+
+        document.getElementById('cancel-edit-btn').addEventListener('click', () => document.getElementById('edit-modal').classList.remove('is-open'));
+        document.getElementById('ai-modal').addEventListener('click', () => document.getElementById('ai-modal').classList.remove('is-open'));
+        document.getElementById('search-tournaments-btn').addEventListener('click', () => document.getElementById('search-modal').classList.add('is-open'));
+        document.getElementById('search-close-btn').addEventListener('click', () => document.getElementById('search-modal').classList.remove('is-open'));
+
+        // AI Modal Prompt Buttons
+        document.getElementById('ai-prompts').addEventListener('click', (e) => {
+            if(e.target.classList.contains('ai-prompt-btn')) {
+                const tournament = JSON.parse(document.getElementById('ai-modal').dataset.tournament);
+                const promptType = e.target.dataset.prompt;
+                const prompts = {
+                    restaurants: `Suggest 3-4 family-friendly restaurants near ${tournament.location}. Include a brief description and type of cuisine for each.`,
+                    activities: `What are some fun team activities for a U12 boys soccer team near ${tournament.location}? Suggest 3-4 options with brief descriptions.`,
+                    packingList: `Generate a comprehensive packing list for a U12 soccer player for the '${tournament.name}' weekend tournament.`,
+                    email: `Draft a pre-game email to parents for the Quakes U12 team about the '${tournament.name}' tournament. Include placeholders for game times, field numbers, and ask them to RSVP. The tournament is on ${tournament.weekend} at ${tournament.location}.`
+                };
+                callGeminiApi(prompts[promptType], 'ai-response', 'ai-loading', 'ai-error', 'ai-prompts');
+            }
+        });
+
+        // Search Modal Logic
+        const searchSubmitBtn = document.getElementById('search-submit-btn');
+        const searchQueryInput = document.getElementById('search-query');
+
+        searchSubmitBtn.addEventListener('click', handleTournamentSearch);
+        searchQueryInput.addEventListener('keyup', e => e.key === 'Enter' && handleTournamentSearch());
+
+        async function handleTournamentSearch() {
+            const query = searchQueryInput.value.trim();
+            if (!query) return;
+
+            const loadingEl = document.getElementById('search-loading');
+            const errorEl = document.getElementById('search-error');
+            const resultsListEl = document.getElementById('search-results-list');
+            const promptTextEl = document.getElementById('search-prompt-text');
+
+            loadingEl.style.display = 'flex';
+            errorEl.style.display = 'none';
+            resultsListEl.innerHTML = '';
+            promptTextEl.style.display = 'none';
+            searchSubmitBtn.disabled = true;
+
+            const prompt = `Search the web for U12 boys soccer tournaments in 2025 matching the query: '${query}'. Return the data as a JSON array with these exact keys: 'name', 'location', 'weekend', 'gameDate', 'estimatedCost'. For estimatedCost, return it as a string like '$XXX'. If no results are found, return an empty array.`;
+            const schema = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: { name: { type: "STRING" }, location: { type: "STRING" }, weekend: { type: "STRING" }, gameDate: { type: "STRING" }, estimatedCost: { type: "STRING" } },
+                    required: ["name", "location", "weekend", "gameDate", "estimatedCost"]
+                }
+            };
+
+            try {
+                const webResults = await callGeminiApi(prompt, null, null, null, null, schema) || [];
+                const localMatches = allTournaments.filter(t => t.name.toLowerCase().includes(query.toLowerCase())).map(t => ({...t, isAdded: true}));
+                
+                const combinedResults = [...localMatches];
+                const addedNames = new Set(localMatches.map(t => t.name.toLowerCase()));
+                webResults.forEach(webResult => {
+                    if (!addedNames.has(webResult.name.toLowerCase())) {
+                        combinedResults.push({...webResult, isAdded: false});
+                        addedNames.add(webResult.name.toLowerCase());
+                    }
+                });
+
+                if (combinedResults.length === 0) {
+                    errorEl.textContent = 'No tournaments found matching your search.';
+                    errorEl.style.display = 'block';
+                } else {
+                    resultsListEl.innerHTML = combinedResults.map(t => `
+                        <li class="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
+                            <div>
+                                <p class="font-bold text-gray-800">${t.name}</p>
+                                <p class="text-sm text-gray-600">${t.location} • ${t.weekend} • ${t.estimatedCost || 'Cost not specified'}</p>
+                            </div>
+                            <button class="${t.isAdded ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-green-500 text-white hover:bg-green-600'} add-searched-tournament-btn text-sm font-medium py-1 px-3 rounded-md" ${t.isAdded ? 'disabled' : ''} data-tournament='${JSON.stringify(t)}'>
+                                ${t.isAdded ? 'Added' : '+ Add'}
+                            </button>
+                        </li>
+                    `).join('');
+                }
+            } catch (err) {
+                console.error("Tournament Search Error:", err);
+                errorEl.textContent = 'Sorry, an error occurred while searching.';
+                errorEl.style.display = 'block';
+            } finally {
+                loadingEl.style.display = 'none';
+                searchSubmitBtn.disabled = false;
+            }
+        }
+        
+        document.getElementById('search-results-list').addEventListener('click', async e => {
+             const tournamentsCollection = collection(getFirestore(), `/artifacts/${appId}/public/data/tournaments`);
+             if (e.target.classList.contains('add-searched-tournament-btn')) {
+                const tournamentData = JSON.parse(e.target.dataset.tournament);
+                const newTournament = { ...tournamentData, status: 'Not Registered', eventType: 'Tournament', driveTime: 'N/A', actualCost: '' };
+                await addDoc(tournamentsCollection, newTournament);
+                e.target.textContent = 'Added';
+                e.target.disabled = true;
+                e.target.classList.remove('bg-green-500', 'hover:bg-green-600');
+                e.target.classList.add('bg-gray-200', 'text-gray-500', 'cursor-not-allowed');
+            }
+        });
+
+        async function callGeminiApi(prompt, responseElId, loadingElId, errorElId, promptsContainerId, schema = null) {
+            const responseEl = responseElId ? document.getElementById(responseElId) : null;
+            const loadingEl = loadingElId ? document.getElementById(loadingElId) : null;
+            const errorEl = errorElId ? document.getElementById(errorElId) : null;
+            const promptsContainerEl = promptsContainerId ? document.getElementById(promptsContainerId) : null;
+
+            if (loadingEl) loadingEl.style.display = 'flex';
+            if (responseEl) responseEl.textContent = '';
+            if (errorEl) errorEl.style.display = 'none';
+            if (promptsContainerEl) promptsContainerEl.querySelectorAll('button').forEach(b => b.disabled = true);
+            
+            try {
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                if (schema) {
+                    payload.generationConfig = { responseMimeType: "application/json", responseSchema: schema };
+                }
+                const apiKey = "GEMINI_API_KEY"; // User's key has been inserted here
+                if (!apiKey || apiKey === "GEMINI_API_KEY") {
+                    console.error("API Key is missing.");
+                    throw new Error("API Key is missing. Please add your Gemini API Key to the script section.");
+                }
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!res.ok) throw new Error(`API call failed: ${res.status}`);
+                const result = await res.json();
+                
+                if (result.candidates && result.candidates[0]?.content?.parts?.[0]) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    if (schema) return JSON.parse(text);
+                    if (responseEl) responseEl.textContent = text;
+                } else {
+                    throw new Error("Unexpected API response format.");
+                }
+            } catch (err) {
+                 if (errorEl) {
+                    errorEl.textContent = err.message;
+                    errorEl.style.display = 'block';
+                }
+                return schema ? [] : null; 
+            } finally {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (promptsContainerEl) promptsContainerEl.querySelectorAll('button').forEach(b => b.disabled = false);
+            }
+        }
+    </script>
+
+</body>
+</html>
