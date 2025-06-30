@@ -199,6 +199,7 @@
           appId: "1:462438262939:web:8780339a10eee6d3b9fe3e"
         };
 
+
         const initialTournaments = [
             { weekend: "July 18-20, 2025", gameDate: "Jul 18-20, 2025", name: "Solano Surf Classic (Boys)", location: "Fairfield, CA", status: "Candidate", eventType: "Tournament", driveTime: "~41 mins", estimatedCost: "$795", actualCost: "" },
             { weekend: "July 18-20, 2025", gameDate: "Jul 19-20, 2025", name: "Silver Cup", location: "Sacramento, CA", status: "Candidate", eventType: "Tournament", driveTime: "~1 hr 15 mins", estimatedCost: "$850", actualCost: "" },
@@ -212,12 +213,14 @@
         const statusOptions = ["Not Registered", "Registered", "Blocked", "Candidate"];
         const eventTypeOptions = ["Tournament", "State Cup Game", "Blocked Date", "League Game"];
         
+        // --- DOM Elements ---
         const tbody = document.getElementById('tournaments-tbody');
         const tfoot = document.getElementById('tournaments-tfoot');
         const playerCountInput = document.getElementById('player-count');
         const loadingIndicator = document.getElementById('loading-indicator');
         const tableContainer = document.getElementById('table-container');
         
+        // --- Render Functions ---
         const renderTable = () => {
             tbody.innerHTML = '';
             filteredTournaments.forEach(tournament => {
@@ -294,31 +297,13 @@
             document.getElementById('filter-event-type').innerHTML = createOptions(allTournaments.map(t => t.eventType));
         }
 
-        try {
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
-            const auth = getAuth(app);
-            let tournamentsCollection;
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        let tournamentsCollection;
 
-            onAuthStateChanged(auth, async (user) => {
-                if (!user) {
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (error) {
-                        console.error("Authentication failed:", error);
-                        const errorContainer = document.getElementById('auth-error-container');
-                        const errorMessageEl = document.getElementById('auth-error-message');
-                         if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/configuration-not-found') {
-                            errorMessageEl.innerHTML = `To use this app, please enable Anonymous sign-in in your Firebase project: <br>1. Go to your Firebase Console. <br>2. Select your project ('quakes-soccer-schedule'). <br>3. Go to Authentication > Sign-in method. <br>4. Click 'Add new provider', select 'Anonymous', and click 'Enable'. <br>5. Refresh this page.`;
-                        } else {
-                            errorMessageEl.textContent = `An unexpected authentication error occurred: ${error.message}`;
-                        }
-                        errorContainer.classList.remove('hidden');
-                        loadingIndicator.style.display = 'none';
-                    }
-                    return;
-                }
-
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
                 console.log("User authenticated:", user.uid);
                 document.getElementById('app-id-display').textContent = `App ID: ${appId}`;
                 
@@ -341,11 +326,21 @@
                     console.error("Error fetching tournaments:", error);
                     loadingIndicator.textContent = "Error loading data.";
                 });
-            });
-        } catch(e) {
-             console.error("Firebase initialization failed: ", e);
-             alert("Could not initialize the app. Please ensure your Firebase configuration is correct.");
-        }
+            }
+        });
+        
+        signInAnonymously(auth).catch((error) => {
+            console.error("Authentication failed:", error);
+            const errorContainer = document.getElementById('auth-error-container');
+            const errorMessageEl = document.getElementById('auth-error-message');
+             if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/configuration-not-found') {
+                errorMessageEl.innerHTML = `To use this app, please enable Anonymous sign-in in your Firebase project: <br>1. Go to your Firebase Console. <br>2. Select your project ('quakes-soccer-schedule'). <br>3. Go to Authentication > Sign-in method. <br>4. Click 'Add new provider', select 'Anonymous', and click 'Enable'. <br>5. Refresh this page.`;
+            } else {
+                errorMessageEl.textContent = `An unexpected authentication error occurred: ${error.message}`;
+            }
+            errorContainer.classList.remove('hidden');
+            loadingIndicator.style.display = 'none';
+        });
 
 
         // --- Event Handlers ---
@@ -553,7 +548,7 @@
                 if (schema) {
                     payload.generationConfig = { responseMimeType: "application/json", responseSchema: schema };
                 }
-                const apiKey = "GEMINI_API_KEY"; // User's key has been inserted here
+                const apiKey = "AIzaSyCVilqPArAqZdsMCGlLeShiVWe64DBsYcY";
                 if (!apiKey || apiKey === "GEMINI_API_KEY") {
                     console.error("API Key is missing.");
                     throw new Error("API Key is missing. Please add your Gemini API Key to the script section.");
