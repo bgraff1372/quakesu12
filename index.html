@@ -65,6 +65,11 @@
                 <select id="filter-event-type" class="p-3 border border-gray-300 rounded-lg w-full bg-white"></select>
             </div>
         </div>
+        
+        <div class="mb-6 p-4 bg-gray-50 rounded-lg flex items-center gap-4">
+             <label for="player-count" class="font-medium text-gray-700">Number of Players:</label>
+             <input type="number" id="player-count" value="11" class="p-2 border border-gray-300 rounded-lg w-24">
+         </div>
 
         <div id="loading-indicator" class="text-center py-10">
             <p class="text-gray-500">Loading schedule...</p>
@@ -90,10 +95,6 @@
                 <tfoot id="tournaments-tfoot" class="bg-gray-100 font-bold"></tfoot>
             </table>
         </div>
-        <div class="mt-6 p-4 bg-gray-50 rounded-lg flex items-center gap-4">
-             <label for="player-count" class="font-medium text-gray-700">Number of Players:</label>
-             <input type="number" id="player-count" value="11" class="p-2 border border-gray-300 rounded-lg w-24">
-         </div>
     </div>
 
     <!-- Modals -->
@@ -188,7 +189,6 @@
         let filters = { name: '', weekend: '', status: '', eventType: '' };
         let numberOfPlayers = 11;
         
-        // --- Firebase Config (Pasted from user) ---
         const appId = 'my-quakes-u12-schedule';
         const firebaseConfig = {
           apiKey: "AIzaSyBwHBbL0ZxKW0b9fDEV317BMKihJyTCchY",
@@ -198,8 +198,6 @@
           messagingSenderId: "462438262939",
           appId: "1:462438262939:web:8780339a10eee6d3b9fe3e"
         };
-        // --- End of Firebase Config ---
-
 
         const initialTournaments = [
             { weekend: "July 18-20, 2025", gameDate: "Jul 18-20, 2025", name: "Solano Surf Classic (Boys)", location: "Fairfield, CA", status: "Candidate", eventType: "Tournament", driveTime: "~41 mins", estimatedCost: "$795", actualCost: "" },
@@ -214,14 +212,12 @@
         const statusOptions = ["Not Registered", "Registered", "Blocked", "Candidate"];
         const eventTypeOptions = ["Tournament", "State Cup Game", "Blocked Date", "League Game"];
         
-        // --- DOM Elements ---
         const tbody = document.getElementById('tournaments-tbody');
         const tfoot = document.getElementById('tournaments-tfoot');
         const playerCountInput = document.getElementById('player-count');
         const loadingIndicator = document.getElementById('loading-indicator');
         const tableContainer = document.getElementById('table-container');
         
-        // --- Render Functions ---
         const renderTable = () => {
             tbody.innerHTML = '';
             filteredTournaments.forEach(tournament => {
@@ -298,7 +294,6 @@
             document.getElementById('filter-event-type').innerHTML = createOptions(allTournaments.map(t => t.eventType));
         }
 
-        // --- Firebase Logic ---
         try {
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
