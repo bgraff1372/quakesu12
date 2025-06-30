@@ -36,7 +36,7 @@
 
     <div id="auth-error-container" class="hidden fixed inset-0 bg-red-100 text-red-800 p-8 z-[100]">
         <div class="m-auto text-center">
-            <h2 class="text-2xl font-bold mb-4">Authentication Error</h2>
+            <h2 class="text-2xl font-bold mb-4">Application Error</h2>
             <p id="auth-error-message" class="text-lg"></p>
         </div>
     </div>
@@ -183,11 +183,14 @@
         import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        // --- State and Config ---
+        // --- App State & Config ---
         let allTournaments = [];
         let filteredTournaments = [];
         let filters = { name: '', weekend: '', status: '', eventType: '' };
         let numberOfPlayers = 11;
+        let db;
+        let auth;
+        let tournamentsCollection;
         
         const appId = 'my-quakes-u12-schedule';
         const firebaseConfig = {
@@ -198,8 +201,7 @@
           messagingSenderId: "462438262939",
           appId: "1:462438262939:web:8780339a10eee6d3b9fe3e"
         };
-
-
+        
         const initialTournaments = [
             { weekend: "July 18-20, 2025", gameDate: "Jul 18-20, 2025", name: "Solano Surf Classic (Boys)", location: "Fairfield, CA", status: "Candidate", eventType: "Tournament", driveTime: "~41 mins", estimatedCost: "$795", actualCost: "" },
             { weekend: "July 18-20, 2025", gameDate: "Jul 19-20, 2025", name: "Silver Cup", location: "Sacramento, CA", status: "Candidate", eventType: "Tournament", driveTime: "~1 hr 15 mins", estimatedCost: "$850", actualCost: "" },
@@ -213,14 +215,12 @@
         const statusOptions = ["Not Registered", "Registered", "Blocked", "Candidate"];
         const eventTypeOptions = ["Tournament", "State Cup Game", "Blocked Date", "League Game"];
         
-        // --- DOM Elements ---
         const tbody = document.getElementById('tournaments-tbody');
         const tfoot = document.getElementById('tournaments-tfoot');
         const playerCountInput = document.getElementById('player-count');
         const loadingIndicator = document.getElementById('loading-indicator');
         const tableContainer = document.getElementById('table-container');
         
-        // --- Render Functions ---
         const renderTable = () => {
             tbody.innerHTML = '';
             filteredTournaments.forEach(tournament => {
@@ -296,52 +296,61 @@
             document.getElementById('filter-status').innerHTML = createOptions(allTournaments.map(t => t.status));
             document.getElementById('filter-event-type').innerHTML = createOptions(allTournaments.map(t => t.eventType));
         }
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        let tournamentsCollection;
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                console.log("User authenticated:", user.uid);
-                document.getElementById('app-id-display').textContent = `App ID: ${appId}`;
-                
-                tournamentsCollection = collection(db, `/artifacts/${appId}/public/data/tournaments`);
-                onSnapshot(tournamentsCollection, (snapshot) => {
-                    loadingIndicator.style.display = 'none';
-                    tableContainer.style.display = 'block';
-
-                    if (snapshot.empty && !snapshot.metadata.fromCache) {
-                         console.log("Seeding initial data...");
-                         const batch = writeBatch(db);
-                         initialTournaments.forEach(t => batch.set(doc(tournamentsCollection), t));
-                         batch.commit().catch(e => console.error("Seeding error:", e));
-                    } else {
-                        allTournaments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        applyFilters();
-                        updateFilterDropdowns();
-                    }
-                }, (error) => {
-                    console.error("Error fetching tournaments:", error);
-                    loadingIndicator.textContent = "Error loading data.";
-                });
-            }
-        });
         
-        signInAnonymously(auth).catch((error) => {
-            console.error("Authentication failed:", error);
+        const showAuthError = (message) => {
             const errorContainer = document.getElementById('auth-error-container');
             const errorMessageEl = document.getElementById('auth-error-message');
-             if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/configuration-not-found') {
-                errorMessageEl.innerHTML = `To use this app, please enable Anonymous sign-in in your Firebase project: <br>1. Go to your Firebase Console. <br>2. Select your project ('quakes-soccer-schedule'). <br>3. Go to Authentication > Sign-in method. <br>4. Click 'Add new provider', select 'Anonymous', and click 'Enable'. <br>5. Refresh this page.`;
-            } else {
-                errorMessageEl.textContent = `An unexpected authentication error occurred: ${error.message}`;
-            }
+            errorMessageEl.innerHTML = message;
             errorContainer.classList.remove('hidden');
             loadingIndicator.style.display = 'none';
-        });
+        }
 
+        async function main() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                await signInAnonymously(auth);
+                console.log("Signed in anonymously.");
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        console.log("User is authenticated. UID:", user.uid);
+                        document.getElementById('app-id-display').textContent = `App ID: ${appId}`;
+                        tournamentsCollection = collection(db, `/schedules/${appId}/tournaments`);
+                        
+                        onSnapshot(tournamentsCollection, (snapshot) => {
+                            loadingIndicator.style.display = 'none';
+                            tableContainer.style.display = 'block';
+
+                            if (snapshot.empty && !snapshot.metadata.fromCache) {
+                                console.log("Seeding initial data...");
+                                const batch = writeBatch(db);
+                                initialTournaments.forEach(t => batch.set(doc(tournamentsCollection), t));
+                                batch.commit().catch(e => console.error("Seeding error:", e));
+                            } else {
+                                allTournaments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                                applyFilters();
+                                updateFilterDropdowns();
+                            }
+                        }, (error) => {
+                            console.error("Error fetching tournaments:", error);
+                            loadingIndicator.textContent = "Error loading data.";
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error("Initialization or Auth failed:", error);
+                 if (error.code === 'auth/operation-not-allowed') {
+                    showAuthError(`To use this app, please enable Anonymous sign-in in your Firebase project: <br>1. Go to your Firebase Console. <br>2. Select your project ('quakes-soccer-schedule'). <br>3. Go to Authentication > Sign-in method. <br>4. Click 'Add new provider', select 'Anonymous', and click 'Enable'. <br>5. Refresh this page.`);
+                } else {
+                    showAuthError(`An unexpected error occurred: ${error.message}`);
+                }
+            }
+        }
+        
+        main();
 
         // --- Event Handlers ---
         document.getElementById('add-tournament-btn').addEventListener('click', () => {
@@ -352,7 +361,6 @@
         });
         
         tbody.addEventListener('click', (e) => {
-            const tournamentsCollection = collection(getFirestore(), `/artifacts/${appId}/public/data/tournaments`);
             if (e.target.classList.contains('edit-btn')) {
                 const tournament = allTournaments.find(t => t.id === e.target.dataset.id);
                 if (tournament) {
@@ -384,7 +392,6 @@
         });
 
         tbody.addEventListener('change', (e) => {
-            const tournamentsCollection = collection(getFirestore(), `/artifacts/${appId}/public/data/tournaments`);
             if (e.target.classList.contains('status-select')) {
                  updateDoc(doc(tournamentsCollection, e.target.dataset.id), { status: e.target.value });
             }
@@ -392,7 +399,6 @@
 
         document.getElementById('edit-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const tournamentsCollection = collection(getFirestore(), `/artifacts/${appId}/public/data/tournaments`);
             const id = document.getElementById('edit-id').value;
             const data = {
                 name: document.getElementById('edit-name').value,
